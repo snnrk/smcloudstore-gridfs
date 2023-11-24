@@ -1,0 +1,23 @@
+{
+  "name": "@snnrk/smcloudstore-gridfs",
+  "version": "0.0.1",
+  "description": "GridFS provider for SMCloudStore",
+  "main": "dist/GridFsProvider.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/snnrk/smcloudstore-providers.git"
+  },
+  "author": "OSANAI Noriaki <snnrk1002@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/snnrk/smcloudstore-providers/issues"
+  },
+  "homepage": "https://github.com/snnrk/smcloudstore-providers#readme",
+  "dependencies": {
+    "@smcloudstore/core": "^0.2.0",
+    "mongodb": "^6.3.0"
+  }
+}

@@ -1,0 +1,128 @@
+/* eslint-disable require-jsdoc */
+'use strict';
+import { Stream } from 'stream';
+import { Duplex } from 'stream';
+import {
+  ListResults,
+  PutObjectOptions,
+  StorageProvider,
+} from '@smcloudstore/core/dist/StorageProvider';
+import { IsStream } from '@smcloudstore/core/dist/StreamUtils';
+import { GridFsClient, type GridFsConnectionOptions } from './GridFsClient';
+import { makePath } from './helper';
+
+interface GridFSCreateContainerOptions {}
+interface GridFSPutObjectOptions extends PutObjectOptions {}
+
+export class GridFsProvider extends StorageProvider {
+  protected declare _client: GridFsClient;
+
+  constructor(connection: GridFsConnectionOptions) {
+    super(connection);
+
+    this._provider = 'gridfs';
+    this._client = new GridFsClient(connection);
+  }
+
+  // #region functions for containers
+  async createContainer(_container: string, _options?: GridFSCreateContainerOptions) {
+    return Promise.resolve();
+  }
+
+  async deleteContainer(_container: string): Promise<void> {
+    return Promise.resolve();
+  }
+
+  async ensureContainer(_container: string, _options?: GridFSCreateContainerOptions) {
+    return Promise.resolve();
+  }
+
+  isContainer(_container: string) {
+    return Promise.resolve(true);
+  }
+
+  async listContainers(): Promise<string[]> {
+    return Promise.resolve([] as string[]);
+  }
+  // #endregion
+
+  // #region functions for objects
+  async getObject(container: string, path: string): Promise<Stream> {
+    const target = makePath(container, path);
+    const db = await this._client.connect();
+
+    return db.createReadStream({ filename: target });
+  }
+
+  async putObject(
+    container: string,
+    path: string,
+    data: Buffer | Stream | string,
+    options?: GridFSPutObjectOptions
+  ): Promise<void> {
+    const target = makePath(container, path);
+    const db = await this._client.connect();
+
+    return new Promise((resolve, reject) => {
+      const ds: Stream | Duplex = (() => {
+        // eslint-disable-next-line new-cap
+        if (IsStream(data)) {
+          return data as Stream;
+        } else {
+          const ds = new Duplex();
+
+          if (typeof data == 'object' && Buffer.isBuffer(data)) {
+            ds.push(data);
+          } else if (typeof data == 'string') {
+            ds.push(data, 'utf8');
+          } else {
+            throw Error('Invalid data argument: must be a stream, a Buffer or a string');
+          }
+          ds.push(null);
+          return ds;
+        }
+      })();
+      // eslint-disable-next-line new-cap
+
+      const ws = db.createWriteStream({ ...options, filename: target });
+      ds.on('error', reject)
+        .pipe(ws)
+        .on('error', reject)
+        .on('finish', () => resolve());
+    });
+  }
+
+  async listObjects(container: string, _prefix?: string): Promise<ListResults> {
+    const db = await this._client.connect();
+    return new Promise((resolve, reject) =>
+      db.list((err, items) =>
+        err ? reject(err) : resolve(items.filter((item) => item.startsWith(container)))
+      )
+    );
+  }
+
+  async deleteObject(container: string, path: string): Promise<void> {
+    const target = makePath(container, path);
+    const db = await this._client.connect();
+
+    return new Promise((resolve, reject) =>
+      db.remove({ filename: target }, (err) => (err ? reject(err) : resolve(void 0)))
+    );
+  }
+  // #endregion
+
+  // #region functions for presigned url
+  async presignedGetUrl(_container: string, _path: string, _ttl?: number): Promise<string> {
+    return Promise.resolve('');
+  }
+
+  presignedPutUrl(
+    _container: string,
+    _path: string,
+    _options?: GridFSPutObjectOptions,
+    _ttl?: number
+  ): Promise<string> {
+    return Promise.resolve('');
+  }
+  // #endregion
+}
